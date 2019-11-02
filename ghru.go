@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/blang/semver"
+	"github.com/masterminds/semver"
 )
 
 // AllowPrereleases defines whether pre-releases may be included
@@ -71,13 +71,13 @@ func Latest(repo, name string) (string, string, string, error) {
 
 	// loop through releases
 	for _, r := range releases {
-		tagVersion, err := semver.Make(r.Tag)
+		tagVersion, err := semver.NewVersion(r.Tag)
 		if err != nil {
 			// Invalid semversion, skip
 			continue
 		}
 
-		if !AllowPrereleases && (len(tagVersion.Pre) > 0 || r.Prerelease) {
+		if !AllowPrereleases && (tagVersion.Prerelease() != "" || r.Prerelease) {
 			// we don't accept AllowPrereleases, skip
 			continue
 		}
@@ -86,7 +86,7 @@ func Latest(repo, name string) (string, string, string, error) {
 
 		for _, a := range r.Assets {
 			if a.Name == binaryName {
-				thisRelease := Release{a.Name, r.Tag, a.BrowserDownloadURL, a.Size, tagVersion}
+				thisRelease := Release{a.Name, r.Tag, a.BrowserDownloadURL, a.Size, *tagVersion}
 				allReleases = append(allReleases, thisRelease)
 				break
 			}
@@ -102,7 +102,7 @@ func Latest(repo, name string) (string, string, string, error) {
 
 	for _, r := range allReleases {
 		// detect the latest release
-		if r.SemVer.Compare(latestRelease.SemVer) > 0 {
+		if r.SemVer.GreaterThan(&latestRelease.SemVer) {
 			latestRelease = r
 		}
 	}
@@ -110,20 +110,20 @@ func Latest(repo, name string) (string, string, string, error) {
 	return latestRelease.Tag, latestRelease.Name, latestRelease.URL, nil
 }
 
-// Compare compares the current version to a different version
+// GreaterThan compares the current version to a different version
 // returning < 1 not upgradeable
-func Compare(fromVer, toVer string) int {
-	fromVersion, err := semver.Make(fromVer)
+func GreaterThan(fromVer, toVer string) bool {
+	fromVersion, err := semver.NewVersion(fromVer)
 	if err != nil {
-		return 1
+		return false
 	}
 
-	toVersion, err := semver.Make(toVer)
+	toVersion, err := semver.NewVersion(toVer)
 	if err != nil {
-		return -1
+		return false
 	}
 
-	return toVersion.Compare(fromVersion)
+	return toVersion.GreaterThan(fromVersion)
 }
 
 // Update the running binary with the latest release binary from Github
@@ -138,10 +138,10 @@ func Update(repo, appName, currentVersion string) (string, error) {
 		return "", fmt.Errorf("No new release found")
 	}
 
-	tagVersion, _ := semver.Make(currentVersion)
-	latestVersion, _ := semver.Make(ver)
+	tagVersion, _ := semver.NewVersion(currentVersion)
+	latestVersion, _ := semver.NewVersion(ver)
 
-	if latestVersion.Compare(tagVersion) < 1 {
+	if latestVersion.LessThan(tagVersion) {
 		return "", fmt.Errorf("No new release found")
 	}
 
