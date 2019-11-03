@@ -127,7 +127,7 @@ func Update(repo, appName, currentVersion string) (string, error) {
 	}
 
 	if semver.Compare(ver, currentVersion) < 1 {
-		return "", fmt.Errorf("No new release found")
+		return "", fmt.Errorf("No newer releases found (latest %s)", ver)
 	}
 
 	tmpDir := os.TempDir()
