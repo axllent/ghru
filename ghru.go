@@ -108,6 +108,12 @@ func Latest(repo, name string) (string, string, string, error) {
 	return latestRelease.Tag, latestRelease.Name, latestRelease.URL, nil
 }
 
+// GreaterThan compares the current version to a different version
+// returning < 1 not upgradeable
+func GreaterThan(toVer, fromVer string) bool {
+	return semver.Compare(toVer, fromVer) == 1
+}
+
 // Update the running binary with the latest release binary from Github
 func Update(repo, appName, currentVersion string) (string, error) {
 	ver, filename, downloadURL, err := Latest(repo, appName)
