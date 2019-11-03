@@ -100,7 +100,7 @@ func Latest(repo, name string) (string, string, string, error) {
 
 	for _, r := range allReleases {
 		// detect the latest release
-		if semver.Compare(latestRelease.Tag, r.Tag) == 1 {
+		if semver.Compare(r.Tag, latestRelease.Tag) == 1 {
 			latestRelease = r
 		}
 	}
