@@ -61,7 +61,7 @@ func main() {
 	if *showVersion {
 		fmt.Println(fmt.Sprintf("Version: %s", appVersion))
 		latest, _, _, err := ghru.Latest("myuser/myapp", "myapp")
-		if err == nil && ghru.GreaterThan(latest, currentVersion) {
+		if err == nil && ghru.GreaterThan(latest, appVersion) {
 			fmt.Printf("Update available: %s\nRun `%s -u` to update.\n", latest, os.Args[0])
 		}
 		os.Exit(0)
