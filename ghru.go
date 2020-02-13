@@ -143,12 +143,15 @@ func Update(repo, appName, currentVersion string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
 
 	// create a bzip2 reader
 	br := bzip2.NewReader(f)
 
-	oldExec, _ := os.Readlink("/proc/self/exe")
+	// get the running binary
+	oldExec, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
 
 	// get src permissions
 	fi, _ := os.Stat(oldExec)
@@ -164,6 +167,10 @@ func Update(repo, appName, currentVersion string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	// close immediately else Windows has a fit
+	f.Close()
+	out.Close()
 
 	if err = ReplaceFile(oldExec, extractedFile); err != nil {
 		return "", err
@@ -199,17 +206,18 @@ func DownloadToFile(url, filepath string) error {
 	return err
 }
 
-// ReplaceFile replaces one file with another
+// ReplaceFile replaces one file with another.
 // Running files cannot be overwritten, so it has to be moved
 // and the new binary saved to the original path. This requires
-// read & write permissions to both the original file and directory
+// read & write permissions to both the original file and directory.
+// Note, on Windows it is not possible to delete a running program,
+// so the old exe is renamed and moved to os.TempDir()
 func ReplaceFile(dst, src string) error {
 	// open the source file for reading
 	source, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	defer source.Close()
 
 	// destination directory eg: /usr/local/bin
 	dstDir := filepath.Dir(dst)
@@ -233,12 +241,15 @@ func ReplaceFile(dst, src string) error {
 	if err != nil {
 		return err
 	}
-	defer tmpNew.Close()
 
 	// copy new binary to <binary>.new
 	if _, err := io.Copy(tmpNew, source); err != nil {
 		return err
 	}
+
+	// close immediately else Windows has a fit
+	tmpNew.Close()
+	source.Close()
 
 	// rename the current executable to <binary>.old
 	if err := os.Rename(dst, oldTmpAbs); err != nil {
@@ -251,8 +262,16 @@ func ReplaceFile(dst, src string) error {
 	}
 
 	// delete the old binary
-	if err := os.Remove(oldTmpAbs); err != nil {
-		return err
+	if runtime.GOOS == "windows" {
+		tmpDir := os.TempDir()
+		delFile := filepath.Join(tmpDir, filepath.Base(oldTmpAbs))
+		if err := os.Rename(oldTmpAbs, delFile); err != nil {
+			return err
+		}
+	} else {
+		if err := os.Remove(oldTmpAbs); err != nil {
+			return err
+		}
 	}
 
 	// remove the src file
