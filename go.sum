@@ -1,2 +1,2 @@
-github.com/axllent/semver v0.0.0-20191103011746-394cefa91ee9 h1:LHNcCfePzgC/agAJs5a/5K3hFo8uW04bEdDKDkoX4do=
-github.com/axllent/semver v0.0.0-20191103011746-394cefa91ee9/go.mod h1:2xSPzvG8n9mRfdtxSvWvfTfQGWfHsMsHO1iZnKATMSc=
+github.com/axllent/semver v0.0.1 h1:QqF+KSGxgj8QZzSXAvKFqjGWE5792ksOnQhludToK8E=
+github.com/axllent/semver v0.0.1/go.mod h1:2xSPzvG8n9mRfdtxSvWvfTfQGWfHsMsHO1iZnKATMSc=
