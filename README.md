@@ -53,7 +53,7 @@ func main() {
 
 	ghru.AllowPrereleases = true // optional, default false
 
-	update := flag.Bool("u", false, "updater to latest release")
+	update := flag.Bool("u", false, "update to latest release")
 	showVersion := flag.Bool("v", false, "show current version")
 
 	flag.Parse()
