@@ -1,42 +1,44 @@
-# GHRU - Github Release Updater for Go
+# GHRU - GitHub Release Updater for Go
 
 [![GoDoc](https://godoc.org/github.com/axllent/ghru?status.svg)](https://godoc.org/github.com/axllent/ghru)
 [![Go Report Card](https://goreportcard.com/badge/github.com/axllent/ghru)](https://goreportcard.com/report/github.com/axllent/ghru)
 
-GHRU is a golang package that allows self-updating in your application by downloading the latest **semantic** (semver) directly from your github releases (**release assets**), replacing the running version.
+GHRU is a Go package that integrates self-updating functionality into your applications. It provides the ability to fetch the latest newer release information (such as tag, name, release notes), and for self-updating with the latest **semantic version** (semver) from your public GitHub releases.
 
-By default it will skip pre-releases, either defined by "This is a pre-release" option on Github, or by the semverion git tag (eg: `1.2.3-beta1`), however this can be disabled by defining `ghru.AllowPrereleases = true` in your software.
+By default, GHRU skips pre-releases but can be configured to include them. It supports flexible naming conventions and works seamlessly with compressed release assets.
 
-The binaries must be attached to your Github releases (assets), compressed with bzip2 (`bz2`),
-and named accordingly: `<name>_<semver>_<os>_<arch>.bz2`, eg:
+## GitHub release file requirements
 
-```
-myapp_1.2.3_linux_amd64.bz2
-myapp_1.2.3_linux_386.bz2
-myapp_1.2.3_darwin_386.bz2
-myapp_1.2.3_darwin_amd64.bz2
-myapp_1.2.3_windows_amd64.exe.bz2
-myapp_1.2.3_windows_386.exe.bz2
-```
+To ensure compatibility with GHRU, your release files must meet the following criteria:
 
+- **Compression Formats**: Supported formats auto-detected and include `.tar.gz`, `.tgz`, `.tar.bz2`, and `.zip`.
+- **Binary Placement**: The binary must be at the top level in the release archive file (not in subdirectories).
+- **Additional Files**: Additional files such as `CHANGELOG` or `README` can be included in the archive but will be ignored during self-updates.
+- **File Naming**: Each file must specify the lowercased operating system and architecture in its name. Examples:
+  - `app-linux-amd64.tar.gz`
+  - `app-darwin-arm64.zip`
 
-## Install
+## Defining the archive name template
 
-`go get -u github.com/axllent/ghru`
+Go templating is used to parse your `ArchiveName`, which uses the following values which are inherited from the running application:
 
+- `{{.OS}}` - Operating system (lowercased), eg: `linux`, `darwin`, `windows` etc. ([see list](https://github.com/golang/go/blob/master/src/internal/syslist/syslist.go#L17))
+- `{{.Arch}}` - Architecture (lowercased), eg: `386`, `amd64`, `arm64` etc. ([see list](https://github.com/golang/go/blob/master/src/internal/syslist/syslist.go#L58))
+- `{{.Version}}` - the tag version of the release
+
+In your `ghru.Config{}` you must define the `ArchiveName`, for example `"package-{{.OS}}-{{.Arch}}"`.
+GHRU will detect the supported file format based on the filename and append this to the `ArchiveName`, resulting in `package-linux-amd64.tar.gz` when executed from Linux on amd64 architecture.
+
+## Adding the module
+
+`go get -u github.com/axllent/ghru/v2`
 
 ## Example usage
 
-The update command is `ghru.Update("myuser/myapp", "myapp", appVersion)`, where:
-
-- `myuser/myapp` (string) is the github name (handle) and the repository
-- `myapp` (string) is the name of your binary (without semversion, os, architecture or extension)
-- `appVersion` (string) is the current version of the running application
-
-How you define your current running version is entirely up to you, but you must provide it otherwise
-GHRU will always indicate that there is an update.
-
 ```go
+// Package main is an example application integrated with GHRU.
+// Modify the ghru.Config{} variables to suite your repo.
+// CurrentVersion variable value would typically be compiled into the application.
 package main
 
 import (
@@ -44,38 +46,72 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/axllent/ghru"
+	"github.com/axllent/ghru/v2"
 )
 
-var appVersion = "0.1.2" // current app version
+// App version should be set at compile time, for instance as a build argument.
+// It has been hardcoded here for demonstration purposes.
+var CurrentVersion = "0.1.2"
 
 func main() {
 
-	ghru.AllowPrereleases = true // optional, default false
+	c := ghru.Config{
+		// GitHub <org>/<repo> - do not use the full URL
+		Repo:             "myorg/myapp",
+		// Archive filename template
+		ArchiveName:      "myapp-{{.OS}}-{{.Arch}}",
+		// The name of the binary within the archive, ".exe" is automatically appended for Windows binaries
+		BinaryName:       "myapp",
+		// The current version from your running application
+		CurrentVersion:   CurrentVersion,
+		// Allow pre-releases (default false)
+		AllowPreReleases: false,
+	}
 
+	// Command line flags
 	update := flag.Bool("u", false, "update to latest release")
 	showVersion := flag.Bool("v", false, "show current version")
 
 	flag.Parse()
 
+	// Show version and display update information if available
 	if *showVersion {
-		fmt.Println(fmt.Sprintf("Version: %s", appVersion))
-		latest, _, _, err := ghru.Latest("myuser/myapp", "myapp")
-		if err == nil && ghru.GreaterThan(latest, appVersion) {
-			fmt.Printf("Update available: %s\nRun `%s -u` to update.\n", latest, os.Args[0])
-		}
-		os.Exit(0)
-	}
-
-	if *update {
-		rel, err := ghru.Update("myuser/myapp", "myapp", appVersion)
+		fmt.Printf("Current version: %s\n", appVersion)
+		release, err := c.Latest()
 		if err != nil {
-			panic(err)
+			fmt.Println(err.Error())
+			os.Exit(1)
 		}
-		fmt.Printf("Updated %s to version %s\n", os.Args[0], rel)
+
+		// The latest version is the same version
+		if release.Tag == appVersion {
+			fmt.Println("You are running the latest version.")
+			os.Exit(0)
+		}
+
+		// A newer release is available
+		fmt.Printf("Update available: %s\nRun `%s -u` to update.\n", release.Tag, os.Args[0])
+
+		// Display release notes if available
+		if release.ReleaseNotes != "" {
+			fmt.Printf("\nRelease notes\n=============\n\n%s\n", release.ReleaseNotes)
+		}
+
 		os.Exit(0)
 	}
 
-	// ... rest of app
+	// Update the application to the latest release
+	if *update {
+		rel, err := c.SelfUpdate()
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+
+		fmt.Printf("Updated %s to version %s\n", os.Args[0], rel.Tag)
+		os.Exit(0)
+	}
+
+	fmt.Println("This is your test application")
 }
 ```
