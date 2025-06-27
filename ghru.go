@@ -54,7 +54,7 @@ func (c *Config) Latest() (Release, error) {
 	// The key is prefixed with a "v" (if missing) to ensure semver compatibility, and allow sorting later
 	var allReleases = map[string]Release{}
 
-	var releases Releases
+	var releases releases
 
 	if err := json.Unmarshal(body, &releases); err != nil {
 		return latestRelease, fmt.Errorf("failed to parse releases: %v", err)

@@ -26,7 +26,7 @@ type Config struct {
 }
 
 // Releases struct for Github releases json
-type Releases []struct {
+type releases []struct {
 	Name       string `json:"name"`       // release name
 	Tag        string `json:"tag_name"`   // release tag
 	Notes      string `json:"body"`       // release notes
