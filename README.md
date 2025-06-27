@@ -1,6 +1,6 @@
 # GHRU - GitHub Release Updater for Go
 
-[![GoDoc](https://godoc.org/github.com/axllent/ghru?status.svg)](https://go/v2doc.org/github.com/axllent/ghru)
+[![GoDoc](https://pkg.go.dev/badge/github.com/axllent/ghru/v2)](https://pkg.go.dev/github.com/axllent/ghru/v2)
 [![Go Report Card](https://goreportcard.com/badge/github.com/axllent/ghru/v2)](https://goreportcard.com/report/github.com/axllent/ghru/v2)
 
 GHRU is a Go package that integrates self-updating functionality into your applications. It provides the ability to fetch the latest newer release information (such as tag, name, release notes), and for self-updating with the latest **semantic version** (semver) from your public GitHub releases.
