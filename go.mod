@@ -1,5 +1,7 @@
-module github.com/axllent/ghru
+module github.com/axllent/ghru/v2
 
-go 1.13
+go 1.23.0
 
-require github.com/axllent/semver v0.0.1
+toolchain go1.23.4
+
+require golang.org/x/mod v0.25.0

@@ -1,282 +1,249 @@
+// Package ghru is the GitHub Release Updater package
 package ghru
 
 import (
-	"compress/bzip2"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
+	"text/template"
+	"time"
 
-	"github.com/axllent/semver"
+	"golang.org/x/mod/semver"
 )
 
-// AllowPrereleases defines whether pre-releases may be included
-var AllowPrereleases = false
-
-// Releases struct for Github releases json
-type Releases []struct {
-	Name       string `json:"name"`       // release name
-	Tag        string `json:"tag_name"`   // release tag
-	Prerelease bool   `json:"prerelease"` // Github pre-release
-	Assets     []struct {
-		BrowserDownloadURL string `json:"browser_download_url"`
-		ID                 int64  `json:"id"`
-		Name               string `json:"name"`
-		Size               int64  `json:"size"`
-	} `json:"assets"`
-}
-
-// Release struct contains the file data for downloadable release
-type Release struct {
-	Name string
-	Tag  string
-	URL  string
-	Size int64
-}
-
-// Latest fetches the latest release info & returns release tag, filename & download url
-func Latest(repo, name string) (string, string, string, error) {
-	releaseURL := fmt.Sprintf("https://api.github.com/repos/%s/releases", repo)
-
-	resp, err := http.Get(releaseURL)
-	if err != nil {
-		return "", "", "", err
+// Latest returns the latest Release
+func (c *Config) Latest() (Release, error) {
+	latestRelease := Release{}
+	if err := c.validConfig(); err != nil {
+		return latestRelease, err
 	}
-	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	currentVersion := c.CurrentVersion
+	if !strings.HasPrefix(currentVersion, "v") {
+		// Ensure the current version starts with 'v' for semver compatibility
+		currentVersion = "v" + currentVersion
+	}
+
+	releaseURL := fmt.Sprintf("https://api.github.com/repos/%s/releases", c.Repo)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(releaseURL)
+	if err != nil {
+		return latestRelease, fmt.Errorf("failed to fetch releases: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode < 200 {
+		return latestRelease, fmt.Errorf("failed to download file: received status code %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
 
 	if err != nil {
-		return "", "", "", err
+		return latestRelease, err
 	}
 
-	linkOS := runtime.GOOS
-	linkArch := runtime.GOARCH
-	linkExt := ""
-	if linkOS == "windows" {
-		linkExt = ".exe"
-	}
-
-	var allReleases = []Release{}
+	// AllReleases will map the semantic version to the release data.
+	// The key is prefixed with a "v" (if missing) to ensure semver compatibility, and allow sorting later
+	var allReleases = map[string]Release{}
 
 	var releases Releases
 
-	json.Unmarshal(body, &releases)
+	if err := json.Unmarshal(body, &releases); err != nil {
+		return latestRelease, fmt.Errorf("failed to parse releases: %v", err)
+	}
 
-	// loop through releases
+	// Loop through releases
 	for _, r := range releases {
-		if !semver.IsValid(r.Tag) {
-			// Invalid semversion, skip
+		version := r.Tag
+		// Ensure the version starts with 'v' for semver compatibility
+		if !strings.HasPrefix(version, "v") {
+			version = "v" + version
+		}
+
+		// Invalid semantic version, skip
+		if !semver.IsValid(version) {
 			continue
 		}
 
-		if !AllowPrereleases && (semver.Prerelease(r.Tag) != "" || r.Prerelease) {
-			// we don't accept AllowPrereleases, skip
+		// Skip if pre-releases are not enabled
+		if !c.AllowPreReleases && (semver.Prerelease(version) != "" || r.Prerelease) {
 			continue
 		}
 
-		binaryName := fmt.Sprintf("%s_%s_%s_%s%s.bz2", name, r.Tag, linkOS, linkArch, linkExt)
+		if semver.Compare(version, currentVersion) < 0 {
+			// Only include releases that are newer than the current version
+			continue
+		}
+
+		var archiveName bytes.Buffer
+
+		templ, err := template.New("format").Parse(c.ArchiveName)
+		if err != nil {
+			return latestRelease, fmt.Errorf("failed to parse archive template: %w", err)
+		}
+		if err := templ.Execute(&archiveName, map[string]any{
+			"OS":      runtime.GOOS,
+			"Arch":    runtime.GOARCH,
+			"Version": version,
+		}); err != nil {
+			return latestRelease, fmt.Errorf("failed to parse archive template: %v", err)
+		}
 
 		for _, a := range r.Assets {
-			if a.Name == binaryName {
-				thisRelease := Release{a.Name, r.Tag, a.BrowserDownloadURL, a.Size}
-				allReleases = append(allReleases, thisRelease)
-				break
+			if !strings.HasPrefix(a.Name, archiveName.String()) {
+				continue
 			}
+
+			fileType, err := detectFileType(a.Name[len(archiveName.String()):])
+			if err != nil {
+				continue
+			}
+
+			thisRelease := Release{
+				Name:         a.Name,
+				Tag:          r.Tag,
+				Prerelease:   r.Prerelease,
+				ReleaseNotes: strings.TrimSpace(r.Notes),
+				URL:          a.BrowserDownloadURL,
+				Size:         a.Size,
+				FileType:     fileType,
+			}
+
+			allReleases[version] = thisRelease
+			break
 		}
 	}
 
 	if len(allReleases) == 0 {
-		// no releases with suitable assets found
-		return "", "", "", fmt.Errorf("No binary releases found")
+		// No releases with suitable assets found
+		return latestRelease, fmt.Errorf("no releases found")
 	}
 
-	var latestRelease = Release{}
+	// Create slice of versions from the map keys
+	versions := make([]string, len(allReleases))
+	i := 0
+	for k := range allReleases {
+		versions[i] = k
+		i++
+	}
 
-	for _, r := range allReleases {
-		// detect the latest release
-		if semver.Compare(r.Tag, latestRelease.Tag) == 1 {
-			latestRelease = r
+	// Sort semantic versions ascending
+	semver.Sort(versions)
+
+	// Set the latest release to the last version in the sorted slice
+	latestRelease = allReleases[versions[len(versions)-1]]
+
+	return latestRelease, nil
+}
+
+// SelfUpdate updates the application to the latest Release.
+// It returns an error if there is no newer release.
+func (c *Config) SelfUpdate() (Release, error) {
+	latestRelease, err := c.Latest()
+	if err != nil {
+		return Release{}, err
+	}
+
+	v := c.CurrentVersion
+	if !strings.HasPrefix(v, "v") {
+		// Ensure the current version starts with 'v' for semver compatibility
+		v = "v" + v
+	}
+
+	latestCompareVer := latestRelease.Tag
+	if !strings.HasPrefix(latestCompareVer, "v") {
+		// Ensure the current version starts with 'v' for semver compatibility
+		latestCompareVer = "v" + latestCompareVer
+	}
+
+	if latestRelease.Tag == c.CurrentVersion || (semver.IsValid(v) && semver.Compare(latestCompareVer, v) <= 0) {
+		return latestRelease, fmt.Errorf("no newer releases found (current version: %s)", c.CurrentVersion)
+	}
+
+	tmpDir, err := getTempDir()
+	if err != nil {
+		return latestRelease, err
+	}
+
+	outFile := filepath.Join(tmpDir, latestRelease.Name)
+
+	if err := downloadToFile(latestRelease.URL, outFile); err != nil {
+		return latestRelease, err
+	}
+
+	newExec := filepath.Join(tmpDir, c.BinaryName)
+	if runtime.GOOS == "windows" {
+		newExec += ".exe"
+	}
+
+	switch latestRelease.FileType {
+	case "tar.gz", "tar.bz2":
+		if err := tarExtract(outFile, tmpDir); err != nil {
+			return latestRelease, err
+		}
+	case "zip":
+		if _, err := unzip(outFile, tmpDir); err != nil {
+			return latestRelease, err
+		}
+	default:
+		return latestRelease, fmt.Errorf("unsupported file type: %s", latestRelease.FileType)
+	}
+
+	if runtime.GOOS != "windows" {
+		// Make the new binary executable if *nix or macOS
+		err := os.Chmod(newExec, 0755) // #nosec
+		if err != nil {
+			return latestRelease, err
 		}
 	}
 
-	return latestRelease.Tag, latestRelease.Name, latestRelease.URL, nil
-}
-
-// GreaterThan compares the current version to a different version
-// returning < 1 not upgradeable
-func GreaterThan(toVer, fromVer string) bool {
-	return semver.Compare(toVer, fromVer) == 1
-}
-
-// Update the running binary with the latest release binary from Github
-func Update(repo, appName, currentVersion string) (string, error) {
-	ver, filename, downloadURL, err := Latest(repo, appName)
-
-	if err != nil {
-		return "", err
-	}
-
-	if ver == currentVersion {
-		return "", fmt.Errorf("No new release found")
-	}
-
-	if semver.Compare(ver, currentVersion) < 1 {
-		return "", fmt.Errorf("No newer releases found (latest %s)", ver)
-	}
-
-	tmpDir := os.TempDir()
-	bz2File := filepath.Join(tmpDir, filename)
-	extractedFile := strings.TrimSuffix(bz2File, ".bz2")
-
-	if err := DownloadToFile(downloadURL, bz2File); err != nil {
-		return "", err
-	}
-
-	// open the bz2
-	f, err := os.OpenFile(bz2File, 0, 0)
-	if err != nil {
-		return "", err
-	}
-
-	// create a bzip2 reader
-	br := bzip2.NewReader(f)
-
-	// get the running binary
+	// Get the running binary to be replaced
 	oldExec, err := os.Executable()
 	if err != nil {
-		panic(err)
+		return latestRelease, err
 	}
 
-	// get src permissions
-	fi, _ := os.Stat(oldExec)
-	srcPerms := fi.Mode().Perm()
-
-	// write the file
-	out, err := os.OpenFile(extractedFile, os.O_CREATE|os.O_RDWR, srcPerms)
-	if err != nil {
-		return "", err
+	if err = replaceFile(oldExec, newExec); err != nil {
+		return latestRelease, err
 	}
 
-	_, err = io.Copy(out, br)
-	if err != nil {
-		return "", err
-	}
-
-	// close immediately else Windows has a fit
-	f.Close()
-	out.Close()
-
-	if err = ReplaceFile(oldExec, extractedFile); err != nil {
-		return "", err
-	}
-
-	// remove the src file
-	if err := os.Remove(bz2File); err != nil {
-		return "", err
-	}
-
-	return ver, nil
+	return latestRelease, nil
 }
 
-// DownloadToFile downloads a URL to a file
-func DownloadToFile(url, filepath string) error {
-	// Get the data
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	// Create the file
-	out, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	// Write the body to file
-	_, err = io.Copy(out, resp.Body)
-
-	return err
-}
-
-// ReplaceFile replaces one file with another.
-// Running files cannot be overwritten, so it has to be moved
-// and the new binary saved to the original path. This requires
-// read & write permissions to both the original file and directory.
-// Note, on Windows it is not possible to delete a running program,
-// so the old exe is renamed and moved to os.TempDir()
-func ReplaceFile(dst, src string) error {
-	// open the source file for reading
-	source, err := os.Open(src)
-	if err != nil {
-		return err
+// Validate the configuration
+func (c *Config) validConfig() error {
+	// Ensure the Repo is set
+	if c.Repo == "" {
+		return fmt.Errorf("repo must be set")
 	}
 
-	// destination directory eg: /usr/local/bin
-	dstDir := filepath.Dir(dst)
-	// binary filename
-	binaryFilename := filepath.Base(dst)
-	// old binary tmp name
-	dstOld := fmt.Sprintf("%s.old", binaryFilename)
-	// new binary tmp name
-	dstNew := fmt.Sprintf("%s.new", binaryFilename)
-	// absolute path of new tmp file
-	newTmpAbs := filepath.Join(dstDir, dstNew)
-	// absolute path of old tmp file
-	oldTmpAbs := filepath.Join(dstDir, dstOld)
-
-	// get src permissions
-	fi, _ := os.Stat(dst)
-	srcPerms := fi.Mode().Perm()
-
-	// create the new file
-	tmpNew, err := os.OpenFile(newTmpAbs, os.O_CREATE|os.O_RDWR, srcPerms)
-	if err != nil {
-		return err
+	// Validate the org/repo format using a regex
+	re := regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]+/[a-zA-Z0-9][a-zA-Z0-9_.-]+$`)
+	if !re.MatchString(c.Repo) {
+		return fmt.Errorf("repo must be in the format 'owner/repo'")
 	}
 
-	// copy new binary to <binary>.new
-	if _, err := io.Copy(tmpNew, source); err != nil {
-		return err
+	// Ensure the archive name is set
+	if c.ArchiveName == "" {
+		return fmt.Errorf("archive name must be set")
 	}
 
-	// close immediately else Windows has a fit
-	tmpNew.Close()
-	source.Close()
-
-	// rename the current executable to <binary>.old
-	if err := os.Rename(dst, oldTmpAbs); err != nil {
-		return err
+	// Ensure the binary name is set
+	if c.BinaryName == "" {
+		return fmt.Errorf("binary name must be set")
 	}
 
-	// rename the <binary>.new to current executable
-	if err := os.Rename(newTmpAbs, dst); err != nil {
-		return err
-	}
-
-	// delete the old binary
-	if runtime.GOOS == "windows" {
-		tmpDir := os.TempDir()
-		delFile := filepath.Join(tmpDir, filepath.Base(oldTmpAbs))
-		if err := os.Rename(oldTmpAbs, delFile); err != nil {
-			return err
-		}
-	} else {
-		if err := os.Remove(oldTmpAbs); err != nil {
-			return err
-		}
-	}
-
-	// remove the src file
-	if err := os.Remove(src); err != nil {
-		return err
+	// Ensure the current version is set
+	if c.CurrentVersion == "" {
+		return fmt.Errorf("current version must be set")
 	}
 
 	return nil

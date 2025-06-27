@@ -1,2 +1,2 @@
-github.com/axllent/semver v0.0.1 h1:QqF+KSGxgj8QZzSXAvKFqjGWE5792ksOnQhludToK8E=
-github.com/axllent/semver v0.0.1/go.mod h1:2xSPzvG8n9mRfdtxSvWvfTfQGWfHsMsHO1iZnKATMSc=
+golang.org/x/mod v0.25.0 h1:n7a+ZbQKQA/Ysbyb0/6IbB1H/X41mKgbhfv7AfG/44w=
+golang.org/x/mod v0.25.0/go.mod h1:IXM97Txy2VM4PJ3gI61r1YEk/gAj6zAHN3AdZt6S9Ww=
