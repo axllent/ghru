@@ -3,6 +3,8 @@
 [![GoDoc](https://godoc.org/github.com/axllent/ghru?status.svg)](https://godoc.org/github.com/axllent/ghru)
 [![Go Report Card](https://goreportcard.com/badge/github.com/axllent/ghru)](https://goreportcard.com/report/github.com/axllent/ghru)
 
+### Note: this version of GHRU is deprecated. Please use github.com/axllent.ghru/v2 instead.
+
 GHRU is a golang package that allows self-updating in your application by downloading the latest **semantic** (semver) directly from your github releases (**release assets**), replacing the running version.
 
 By default it will skip pre-releases, either defined by "This is a pre-release" option on Github, or by the semverion git tag (eg: `1.2.3-beta1`), however this can be disabled by defining `ghru.AllowPrereleases = true` in your software.
@@ -19,11 +21,9 @@ myapp_1.2.3_windows_amd64.exe.bz2
 myapp_1.2.3_windows_386.exe.bz2
 ```
 
-
 ## Install
 
 `go get -u github.com/axllent/ghru`
-
 
 ## Example usage
 
