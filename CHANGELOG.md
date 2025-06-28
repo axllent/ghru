@@ -1,5 +1,9 @@
 # Changelog
 
+## [v2.0.1]
+
+- Delete temporary directory after update
+
 ## [v2.0.0]
 
 - Completely rewrite module (v2 is incompatible with v1)
