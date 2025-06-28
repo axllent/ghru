@@ -173,6 +173,9 @@ func (c *Config) SelfUpdate() (Release, error) {
 		return latestRelease, err
 	}
 
+	// Delete up the temporary directory on exit
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
 	outFile := filepath.Join(tmpDir, latestRelease.Name)
 
 	if err := downloadToFile(latestRelease.URL, outFile); err != nil {
