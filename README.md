@@ -1,4 +1,4 @@
-# GHRU - GitHub Release Updater for Go
+# GHRU - GitHub Release Updater for Go applications
 
 [![GoDoc](https://pkg.go.dev/badge/github.com/axllent/ghru/v2)](https://pkg.go.dev/github.com/axllent/ghru/v2)
 [![Go Report Card](https://goreportcard.com/badge/github.com/axllent/ghru/v2)](https://goreportcard.com/report/github.com/axllent/ghru/v2)
@@ -14,9 +14,11 @@ To ensure compatibility with GHRU, your release files must meet the following cr
 - **Compression Formats**: Supported formats auto-detected and include `.tar.gz`, `.tgz`, `.tar.bz2`, and `.zip`.
 - **Binary Placement**: The binary must be at the top level in the release archive file (not in subdirectories).
 - **Additional Files**: Additional files such as `CHANGELOG` or `README` can be included in the archive but will be ignored during self-updates.
-- **File Naming**: Each file must specify the lowercased operating system and architecture in its name. Examples:
-  - `app-linux-amd64.tar.gz`
-  - `app-darwin-arm64.zip`
+- **File Naming**: Each file must specify the lowercased operating system and architecture in its name, and can optionally include the version number (the format is defined in your config, see below). Examples:
+  - `app1-linux-amd64.tar.gz`
+  - `app2-darwin-arm64.tar.bz2`
+  - `app3-v1.2.3-windows-amd64.zip`
+  - `windows-amd64.zip`
 
 ## Defining the archive name template
 
@@ -38,7 +40,7 @@ GHRU will detect the supported file format based on the filename and append this
 ```go
 // Package main is an example application integrated with GHRU.
 // Modify the ghru.Config{} variables to suite your repo.
-// CurrentVersion variable value would typically be compiled into the application.
+// AppVersion variable value would typically be compiled into the application.
 package main
 
 import (
@@ -51,7 +53,7 @@ import (
 
 // App version should be set at compile time, for instance as a build argument.
 // It has been hardcoded here for demonstration purposes.
-var CurrentVersion = "0.1.2"
+var AppVersion = "0.1.2"
 
 func main() {
 
@@ -63,7 +65,7 @@ func main() {
 		// The name of the binary within the archive, ".exe" is automatically appended for Windows binaries
 		BinaryName:       "myapp",
 		// The current version from your running application
-		CurrentVersion:   CurrentVersion,
+		CurrentVersion:   AppVersion,
 		// Allow pre-releases (default false)
 		AllowPreReleases: false,
 	}
@@ -76,7 +78,7 @@ func main() {
 
 	// Show version and display update information if available
 	if *showVersion {
-		fmt.Printf("Current version: %s\n", appVersion)
+		fmt.Printf("Current version: %s\n", AppVersion)
 		release, err := c.Latest()
 		if err != nil {
 			fmt.Println(err.Error())
@@ -84,7 +86,7 @@ func main() {
 		}
 
 		// The latest version is the same version
-		if release.Tag == appVersion {
+		if release.Tag == AppVersion {
 			fmt.Println("You are running the latest version.")
 			os.Exit(0)
 		}
