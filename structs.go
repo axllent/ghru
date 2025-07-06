@@ -6,7 +6,7 @@ type Config struct {
 	Repo string
 
 	// ArchiveName is naming convention for the archives in GitHub releases.
-	// Example: "app-{{.OS}}-{{.Arch}}.{{.Ext}}"
+	// Example: "app-{{.OS}}-{{.Arch}}"
 	// It can contain the following placeholders for detected values:
 	// - {{.OS}}: Operating System (e.g., "linux", "windows", "darwin")
 	// - {{.Arch}}: Architecture (e.g., "amd64", "arm64")
