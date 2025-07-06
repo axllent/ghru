@@ -1,5 +1,9 @@
 # Changelog
 
+## [v2.0.2]
+
+- Update ArchiveName example in Config struct documentation
+
 ## [v2.0.1]
 
 - Delete temporary directory after update
