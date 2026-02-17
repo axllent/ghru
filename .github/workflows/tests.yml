@@ -1,24 +1,24 @@
 name: Tests
 on:
   push:
-    branches:
-      - master
-
-# permissions:
-#   contents: read
-#   # Optional: allow read access to pull requests. Use with `only-new-issues` option.
-#   # pull-requests: read
-
+    branches: [master]
+  pull_request:
+    branches: [master]
 jobs:
-  golangci:
-    name: lint
-    runs-on: ubuntu-latest
+  test:
+    strategy:
+      matrix:
+        go-version: [stable]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
-          go-version: stable
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.1
+          go-version: ${{ matrix.go-version }}
+          cache: false
+      - name: Test Go linting (gofmt)
+        if: startsWith(matrix.os, 'ubuntu') == true
+        run: gofmt -s -w . && git diff --exit-code
+      - name: Run Go tests
+        run: go test -p 1 ./ -v
