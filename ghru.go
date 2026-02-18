@@ -40,11 +40,13 @@ func (c *Config) Latest() (Release, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode < 200 {
-		return latestRelease, fmt.Errorf("failed to download file: received status code %d", resp.StatusCode)
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return latestRelease, fmt.Errorf("failed to fetch releases: received status code %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	// Limit response size to prevent memory exhaustion (10MB limit)
+	limitedReader := io.LimitReader(resp.Body, 10*1024*1024)
+	body, err := io.ReadAll(limitedReader)
 
 	if err != nil {
 		return latestRelease, err
