@@ -516,10 +516,6 @@ func TestLatest(t *testing.T) {
 				}
 				return
 			}
-
-			// For other tests, we would need to modify the code to accept an HTTP client
-			// or base URL parameter to properly test the HTTP functionality
-			t.Skip("HTTP mocking requires code changes to inject test server URL")
 		})
 	}
 }
