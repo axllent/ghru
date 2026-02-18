@@ -156,12 +156,13 @@ func extractArchive(filePath string, directory string) error {
 		}
 
 		fileInfo := header.FileInfo()
-		// Paths could contain a '..', is used in a file system operations
-		if strings.Contains(fileInfo.Name(), "..") {
-			continue
-		}
 		dir := filepath.Join(directory, filepath.Dir(header.Name))
 		filename := filepath.Join(dir, fileInfo.Name())
+
+		// Check for path traversal vulnerability: Ensure the file path is within the destination directory
+		if !strings.HasPrefix(filepath.Clean(filename), filepath.Clean(directory)+string(os.PathSeparator)) {
+			return fmt.Errorf("%s: illegal file path", filename)
+		}
 
 		if fileInfo.IsDir() {
 			// Create the directory 755 in case writing permissions prohibit writing before files added
@@ -197,7 +198,7 @@ func extractArchive(filePath string, directory string) error {
 		for {
 			n, err := tarReader.Read(buffer)
 			if err != nil && err != io.EOF {
-				panic(err)
+				return err
 			}
 			if n == 0 {
 				break
