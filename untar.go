@@ -138,13 +138,13 @@ func extractArchive(filePath string, directory string) error {
 	tarReader := tar.NewReader(compressReader)
 
 	// Post extraction directory permissions & timestamps
-	type DirInfo struct {
+	type dirInfo struct {
 		Path   string
 		Header *tar.Header
 	}
 
 	// Slice to add all extracted directory info for post-processing
-	postExtraction := []DirInfo{}
+	postExtraction := []dirInfo{}
 
 	for {
 		header, err := tarReader.Next()
@@ -165,7 +165,7 @@ func extractArchive(filePath string, directory string) error {
 		}
 
 		if fileInfo.IsDir() {
-			// Create the directory 755 in case writing permissions prohibit writing before files added
+			// Create the directory in case writing permissions prohibit writing before files added
 			if err := os.MkdirAll(filename, 0750); err != nil {
 				return err
 			}
@@ -175,7 +175,7 @@ func extractArchive(filePath string, directory string) error {
 			_ = os.Chown(filename, header.Uid, header.Gid)
 
 			// Add directory info to slice to process afterwards
-			postExtraction = append(postExtraction, DirInfo{filename, header})
+			postExtraction = append(postExtraction, dirInfo{filename, header})
 			continue
 		}
 
