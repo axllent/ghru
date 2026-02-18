@@ -1,5 +1,14 @@
 # Changelog
 
+## [v2.1.0]
+
+- Enhance security: prevent path traversal vulnerabilities in archive extraction
+- Improve error handling for HTTP response status codes
+- Add unit tests for Latest and ValidConfig functions
+- Add tar & zip extraction tests
+- Update golang.org/x/mod dependency from 0.25.0 to 0.31.0
+- Update CI/CD dependencies
+
 ## [v2.0.2]
 
 - Update ArchiveName example in Config struct documentation
