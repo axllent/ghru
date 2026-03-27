@@ -1,5 +1,12 @@
 # Changelog
 
+## [v2.1.0]
+
+- Add sha256 checksum validation for downloaded files
+- Update Go version to 1.25.0 and update golang.org/x/mod dependency
+- Improve error handling and validation in various functions
+- Add comprehensive tests for configuration validation, tar extraction, zip extraction, and utility functions
+
 ## [v2.0.2]
 
 - Update ArchiveName example in Config struct documentation
