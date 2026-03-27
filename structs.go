@@ -36,6 +36,7 @@ type releases []struct {
 		ID                 int64  `json:"id"`
 		Name               string `json:"name"`
 		Size               int64  `json:"size"`
+		Digest             string `json:"digest"`
 	} `json:"assets"`
 }
 
@@ -48,4 +49,5 @@ type Release struct {
 	URL          string
 	Size         int64
 	FileType     string
+	Digest       string
 }

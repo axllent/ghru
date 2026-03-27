@@ -2,6 +2,7 @@ package ghru
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -174,4 +175,20 @@ func isDir(path string) bool {
 	}
 
 	return true
+}
+
+// Sha256Checksum returns the sha256 checksum of a file
+func sha256Checksum(s string) (string, error) {
+	f, err := os.Open(filepath.Clean(s))
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }

@@ -115,6 +115,7 @@ func (c *Config) Latest() (Release, error) {
 				URL:          a.BrowserDownloadURL,
 				Size:         a.Size,
 				FileType:     fileType,
+				Digest:       a.Digest,
 			}
 
 			allReleases[version] = thisRelease
@@ -180,6 +181,19 @@ func (c *Config) SelfUpdate() (Release, error) {
 
 	if err := downloadToFile(latestRelease.URL, outFile); err != nil {
 		return latestRelease, err
+	}
+
+	// Match the sha256 hash if provided
+	if latestRelease.Digest != "" && strings.HasPrefix(latestRelease.Digest, "sha256:") {
+		hash, err := sha256Checksum(outFile)
+		if err != nil {
+			return latestRelease, fmt.Errorf("failed to calculate sha256 checksum: %w", err)
+		}
+
+		expectedHash := strings.TrimPrefix(latestRelease.Digest, "sha256:")
+		if hash != expectedHash {
+			return latestRelease, fmt.Errorf("sha256 checksum mismatch: expected %s, got %s", expectedHash, hash)
+		}
 	}
 
 	newExec := filepath.Join(tmpDir, c.BinaryName)
