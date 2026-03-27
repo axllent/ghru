@@ -9,9 +9,11 @@ jobs:
     name: tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
-      - name: go test
+      - name: Test Go linting (gofmt)
+        run: gofmt -s -w . && git diff --exit-code
+      - name: Run Go tests
         run: go test -v .
