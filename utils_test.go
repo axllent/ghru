@@ -123,7 +123,7 @@ func TestMkDirIfNotExists(t *testing.T) {
 func TestDownloadToFile(t *testing.T) {
 	t.Run("downloads content successfully", func(t *testing.T) {
 		const body = "binary content data"
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			fmt.Fprint(w, body)
 		}))
 		defer srv.Close()
@@ -142,7 +142,7 @@ func TestDownloadToFile(t *testing.T) {
 	})
 
 	t.Run("returns error on 404", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 		}))
 		defer srv.Close()
@@ -153,7 +153,7 @@ func TestDownloadToFile(t *testing.T) {
 	})
 
 	t.Run("returns error on 500", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer srv.Close()
