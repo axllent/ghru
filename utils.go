@@ -48,7 +48,7 @@ func downloadToFile(url, fileName string) error {
 
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode < 200 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("failed to download file: received status code %d", resp.StatusCode)
 	}
 
@@ -92,9 +92,12 @@ func replaceFile(dst, src string) error {
 	// Absolute path of old tmp file
 	oldTmpAbs := filepath.Join(dstDir, dstOld)
 
+	srcPerms := os.FileMode(0o755) // Default to 755 if we can't get the permissions of the source file
 	// Get src permissions, ignore errors
-	fi, _ := os.Stat(dst)
-	srcPerms := fi.Mode().Perm()
+	fi, err := os.Stat(dst)
+	if err == nil {
+		srcPerms = fi.Mode().Perm()
+	}
 
 	// Create the new file
 	tmpNew, err := os.OpenFile(filepath.Clean(newTmpAbs), os.O_CREATE|os.O_RDWR, srcPerms) // #nosec
@@ -170,7 +173,7 @@ func mkDirIfNotExists(path string) error {
 // IsDir returns if a path is a directory
 func isDir(path string) bool {
 	info, err := os.Stat(path)
-	if os.IsNotExist(err) || !info.IsDir() {
+	if err != nil || os.IsNotExist(err) || !info.IsDir() {
 		return false
 	}
 

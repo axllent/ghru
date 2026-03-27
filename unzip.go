@@ -59,12 +59,13 @@ func unzip(src string, dest string) ([]string, error) {
 		_, err = io.Copy(outFile, rc) // #nosec - file is streamed from zip to file
 
 		// Close the file without defer to close before next iteration of loop
-		if err := outFile.Close(); err != nil {
-			return filenames, err
+		// Preserve the io.Copy error; only overwrite with close errors if copy succeeded.
+		if closeErr := outFile.Close(); closeErr != nil && err == nil {
+			err = closeErr
 		}
 
-		if err := rc.Close(); err != nil {
-			return filenames, err
+		if closeErr := rc.Close(); closeErr != nil && err == nil {
+			err = closeErr
 		}
 
 		if err != nil {

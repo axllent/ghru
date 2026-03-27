@@ -40,7 +40,7 @@ func (c *Config) Latest() (Release, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode < 200 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return latestRelease, fmt.Errorf("failed to download file: received status code %d", resp.StatusCode)
 	}
 
@@ -78,8 +78,8 @@ func (c *Config) Latest() (Release, error) {
 			continue
 		}
 
-		if semver.Compare(version, currentVersion) < 0 {
-			// Only include releases that are newer than the current version
+		if semver.Compare(version, currentVersion) <= 0 {
+			// Only include releases that are strictly newer than the current version
 			continue
 		}
 
