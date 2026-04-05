@@ -121,7 +121,7 @@ func extractArchive(filePath string, directory string) error {
 	}
 
 	switch fileType {
-	case "tar.gz", "tgz":
+	case "tar.gz":
 		// Do nothing, continue with tar.gz extraction
 		compressReader, err = gzip.NewReader(bufio.NewReader(file))
 		if err != nil {
