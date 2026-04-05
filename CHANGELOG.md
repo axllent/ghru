@@ -1,5 +1,14 @@
 # Changelog
 
+## [v2.2.1]
+
+- Fix comparison logic to include releases equal to the current version
+- Add tests for latest version comparison scenarios
+- Ensure proper closure of temporary files in replaceFile function
+- Ensure proper closure of files in extractArchive function
+- Remove dead "tar.gz" switch in extractArchive function
+- Refactor getTempDir function to eliminate global tempDir variable
+
 ## [v2.2.0]
 
 - Add sha256 checksum validation for downloaded files
