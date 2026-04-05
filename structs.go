@@ -23,6 +23,9 @@ type Config struct {
 
 	// Allow pre-releases, default false
 	AllowPreReleases bool
+
+	// apiBaseURL overrides the GitHub API base URL (used in tests)
+	apiBaseURL string
 }
 
 // Releases struct for Github releases json

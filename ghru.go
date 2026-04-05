@@ -31,7 +31,11 @@ func (c *Config) Latest() (Release, error) {
 		currentVersion = "v" + currentVersion
 	}
 
-	releaseURL := fmt.Sprintf("https://api.github.com/repos/%s/releases", c.Repo)
+	baseURL := c.apiBaseURL
+	if baseURL == "" {
+		baseURL = "https://api.github.com"
+	}
+	releaseURL := fmt.Sprintf("%s/repos/%s/releases", baseURL, c.Repo)
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(releaseURL)
