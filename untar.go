@@ -191,6 +191,12 @@ func extractArchive(filePath string, directory string) error {
 		if err != nil {
 			return err
 		}
+		fileClosed := false
+		closeFile := func() {
+			if !fileClosed {
+				_ = file.Close()
+			}
+		}
 
 		writer := bufio.NewWriter(file)
 
@@ -198,6 +204,7 @@ func extractArchive(filePath string, directory string) error {
 		for {
 			n, err := tarReader.Read(buffer)
 			if err != nil && err != io.EOF {
+				closeFile()
 				return err
 			}
 			if n == 0 {
@@ -206,16 +213,19 @@ func extractArchive(filePath string, directory string) error {
 
 			_, err = writer.Write(buffer[:n])
 			if err != nil {
+				closeFile()
 				return err
 			}
 		}
 
 		err = writer.Flush()
 		if err != nil {
+			closeFile()
 			return err
 		}
 
 		err = file.Close()
+		fileClosed = true
 		if err != nil {
 			return err
 		}
