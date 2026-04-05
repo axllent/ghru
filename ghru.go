@@ -78,8 +78,8 @@ func (c *Config) Latest() (Release, error) {
 			continue
 		}
 
-		if semver.Compare(version, currentVersion) <= 0 {
-			// Only include releases that are strictly newer than the current version
+		if semver.Compare(version, currentVersion) < 0 {
+			// Only include releases that are equal to or newer than the current version
 			continue
 		}
 
