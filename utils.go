@@ -78,6 +78,7 @@ func replaceFile(dst, src string) error {
 	if err != nil {
 		return err
 	}
+	defer func() { _ = source.Close() }()
 
 	// Destination directory eg: /usr/local/bin
 	dstDir := filepath.Dir(dst)
@@ -104,6 +105,12 @@ func replaceFile(dst, src string) error {
 	if err != nil {
 		return err
 	}
+	tmpNewClosed := false
+	defer func() {
+		if !tmpNewClosed {
+			_ = tmpNew.Close()
+		}
+	}()
 
 	// Copy new binary to <binary>.new
 	if _, err := io.Copy(tmpNew, source); err != nil {
@@ -114,6 +121,7 @@ func replaceFile(dst, src string) error {
 	if err := tmpNew.Close(); err != nil {
 		return err
 	}
+	tmpNewClosed = true
 
 	if err := source.Close(); err != nil {
 		return err
