@@ -14,11 +14,6 @@ import (
 	"time"
 )
 
-var (
-	// Temporary directory
-	tempDir string
-)
-
 // Detect file type based on the remainder of the filename passed to it.
 // This only returns supported formats
 func detectFileType(remainder string) (string, error) {
@@ -154,19 +149,17 @@ func replaceFile(dst, src string) error {
 	return os.Remove(src)
 }
 
-// GetTempDir will create & return a temporary directory if one has not been specified
+// GetTempDir will create & return a temporary directory
 func getTempDir() (string, error) {
-	if tempDir == "" {
-		randBytes := make([]byte, 6)
-		if _, err := rand.Read(randBytes); err != nil {
-			return "", err
-		}
-		tempDir = filepath.Join(os.TempDir(), "updater-"+hex.EncodeToString(randBytes))
+	randBytes := make([]byte, 6)
+	if _, err := rand.Read(randBytes); err != nil {
+		return "", err
 	}
+	dir := filepath.Join(os.TempDir(), "updater-"+hex.EncodeToString(randBytes))
 
-	err := mkDirIfNotExists(tempDir)
+	err := mkDirIfNotExists(dir)
 
-	return tempDir, err
+	return dir, err
 }
 
 // MkDirIfNotExists will create a directory if it doesn't exist
