@@ -82,11 +82,6 @@ func (c *Config) Latest() (Release, error) {
 			continue
 		}
 
-		if semver.Compare(version, currentVersion) < 0 {
-			// Only include releases that are equal to or newer than the current version
-			continue
-		}
-
 		var archiveName bytes.Buffer
 
 		templ, err := template.New("format").Parse(c.ArchiveName)
@@ -147,6 +142,17 @@ func (c *Config) Latest() (Release, error) {
 	latestRelease = allReleases[versions[len(versions)-1]]
 
 	return latestRelease, nil
+}
+
+// IsNewerThan returns true if the release is newer than the provided version string
+func (r *Release) IsNewerThan(v string) bool {
+	if !strings.HasPrefix(v, "v") {
+		v = "v" + v
+	}
+	if !strings.HasPrefix(r.Tag, "v") {
+		r.Tag = "v" + r.Tag
+	}
+	return !semver.IsValid(v) || (semver.IsValid(r.Tag) && semver.Compare(r.Tag, v) > 0)
 }
 
 // SelfUpdate updates the application to the latest Release.

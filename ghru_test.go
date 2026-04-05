@@ -100,63 +100,81 @@ func makeReleasesHandler(tag string, prerelease bool) http.HandlerFunc {
 
 func TestLatestVersionComparison(t *testing.T) {
 	tests := []struct {
-		name           string
-		releaseTag     string
-		currentVersion string
-		prerelease     bool
-		allowPre       bool
-		wantErr        string
+		name               string
+		releaseTag         string
+		currentVersion     string
+		prerelease         bool
+		allowPre           bool
+		canUpgrade         bool
+		expectedReleaseTag string
+		wantErr            string
 	}{
 		{
-			name:           "newer release available",
-			releaseTag:     "v2.0.0",
-			currentVersion: "1.0.0",
+			name:               "newer release available",
+			releaseTag:         "v2.0.0",
+			currentVersion:     "1.0.0",
+			canUpgrade:         true,
+			expectedReleaseTag: "v2.0.0",
 		},
 		{
-			name:           "same version (prefixed)",
-			releaseTag:     "v1.0.0",
-			currentVersion: "1.0.0",
+			name:               "same version (prefixed)",
+			releaseTag:         "v1.0.0",
+			currentVersion:     "1.0.0",
+			canUpgrade:         false,
+			expectedReleaseTag: "v1.0.0",
 		},
 		{
-			name:           "same version (exact)",
-			releaseTag:     "v1.0.1",
-			currentVersion: "v1.0.1",
+			name:               "same version (exact)",
+			releaseTag:         "v1.0.1",
+			currentVersion:     "v1.0.1",
+			canUpgrade:         false,
+			expectedReleaseTag: "v1.0.1",
 		},
 		{
-			name:           "older release only",
-			releaseTag:     "v0.9.0",
-			currentVersion: "1.0.0",
-			wantErr:        "no releases found",
+			name:               "older release only",
+			releaseTag:         "v0.9.0",
+			currentVersion:     "1.0.0",
+			canUpgrade:         false,
+			expectedReleaseTag: "v0.9.0",
 		},
 		{
-			name:           "release tag without v prefix",
-			releaseTag:     "2.0.0",
-			currentVersion: "1.0.0",
+			name:               "release tag without v prefix",
+			releaseTag:         "2.0.0",
+			currentVersion:     "1.0.0",
+			canUpgrade:         true,
+			expectedReleaseTag: "2.0.0",
 		},
 		{
-			name:           "current version with v prefix",
-			releaseTag:     "v2.0.0",
-			currentVersion: "v1.0.0",
+			name:               "current version with v prefix",
+			releaseTag:         "v2.0.0",
+			currentVersion:     "v1.0.0",
+			canUpgrade:         true,
+			expectedReleaseTag: "v2.0.0",
 		},
 		{
-			name:           "patch version bump",
-			releaseTag:     "v1.0.1",
-			currentVersion: "1.0.0",
+			name:               "patch version bump",
+			releaseTag:         "1.0.1",
+			currentVersion:     "1.0.0",
+			canUpgrade:         true,
+			expectedReleaseTag: "1.0.1",
 		},
 		{
-			name:           "pre-release alpha to beta",
-			releaseTag:     "v1.0.1-beta",
-			currentVersion: "v1.0.1-alpha",
-			prerelease:     true,
-			allowPre:       true,
+			name:               "pre-release alpha to beta",
+			releaseTag:         "v1.0.1-beta",
+			currentVersion:     "v1.0.1-alpha",
+			prerelease:         true,
+			allowPre:           true,
+			canUpgrade:         true,
+			expectedReleaseTag: "v1.0.1-beta",
 		},
 		{
-			name:           "pre-release beta to alpha",
-			releaseTag:     "v1.0.1-alpha",
-			currentVersion: "v1.0.1-beta",
-			prerelease:     true,
-			allowPre:       true,
-			wantErr:        "no releases found",
+			name:               "pre-release beta to alpha",
+			releaseTag:         "v1.0.1-alpha",
+			currentVersion:     "v1.0.1-beta",
+			prerelease:         true,
+			allowPre:           true,
+			canUpgrade:         false,
+			expectedReleaseTag: "v1.0.1-alpha",
 		},
 		{
 			name:           "pre-release skipped when not allowed",
@@ -164,14 +182,17 @@ func TestLatestVersionComparison(t *testing.T) {
 			currentVersion: "1.0.0",
 			prerelease:     true,
 			allowPre:       false,
+			canUpgrade:     false,
 			wantErr:        "no releases found",
 		},
 		{
-			name:           "pre-release included when allowed",
-			releaseTag:     "v2.0.0-beta.1",
-			currentVersion: "1.0.0",
-			prerelease:     true,
-			allowPre:       true,
+			name:               "pre-release included when allowed",
+			releaseTag:         "v2.0.0-beta.1",
+			currentVersion:     "1.0.0",
+			prerelease:         true,
+			allowPre:           true,
+			canUpgrade:         true,
+			expectedReleaseTag: "v2.0.0-beta.1",
 		},
 	}
 
@@ -189,7 +210,7 @@ func TestLatestVersionComparison(t *testing.T) {
 				apiBaseURL:       srv.URL,
 			}
 
-			_, err := cfg.Latest()
+			latest, err := cfg.Latest()
 			if tt.wantErr != "" {
 				if err == nil {
 					t.Fatalf("expected error %q, got nil", tt.wantErr)
@@ -201,6 +222,18 @@ func TestLatestVersionComparison(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if tt.expectedReleaseTag != "" {
+				if latest.Tag != tt.expectedReleaseTag {
+					t.Errorf("expected latest release tag %q, got %q", tt.expectedReleaseTag, latest.Tag)
+				}
+			}
+
+			if tt.canUpgrade && !latest.IsNewerThan(tt.currentVersion) {
+				t.Errorf("expected to be able to upgrade from %s to %s, but IsNewer returned false", tt.currentVersion, latest.Tag)
+			} else if !tt.canUpgrade && latest.IsNewerThan(tt.currentVersion) {
+				t.Errorf("expected not to be able to upgrade from %s to %s, but IsNewer returned true", tt.currentVersion, latest.Tag)
 			}
 		})
 	}
