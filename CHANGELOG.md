@@ -1,5 +1,9 @@
 # Changelog
 
+## [v2.2.3]
+
+- Update IsNewerThan function to handle invalid semantic versions
+
 ## [v2.2.2]
 
 - Refactor version comparison logic in Latest function
