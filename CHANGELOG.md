@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2.2.2]
+
+- Refactor version comparison logic in Latest function
+- Enhance test cases for upgrade scenarios
+
 ## [v2.2.1]
 
 - Fix comparison logic to include releases equal to the current version
